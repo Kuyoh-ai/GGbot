@@ -1,3 +1,4 @@
+# bot.py
 import os
 import discord
 from discord.ext import commands
@@ -5,7 +6,8 @@ from dotenv import load_dotenv
 
 from config_loader import ConfigLoader
 from chat_ai import ChatAI
-import base64
+from PIL import Image
+from io import BytesIO
 
 load_dotenv()
 
@@ -16,7 +18,7 @@ config = ConfigLoader(CONFIG_PATH)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "")
 
-# ------------- クラス分離: ChatAIインスタンス生成 -------------
+# ------------- ChatAIインスタンス生成 -------------
 chat_ai = ChatAI(
     api_key=GEMINI_API_KEY,
     model=config.gemini_model,
@@ -29,7 +31,7 @@ intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
 
-bot = commands.Bot(intents=intents, command_prefix="!")  # prefixは適宜
+bot = commands.Bot(intents=intents, command_prefix="!")  # prefixは任意
 
 
 @bot.event
@@ -44,9 +46,7 @@ async def on_message(message: discord.Message):
         return
 
     # メンションまたはリプライをトリガーとする
-    # メンション判定
     is_mentioned = bot.user.mentioned_in(message)
-    # リプライ判定
     is_reply_to_bot = (
         message.reference
         and message.reference.resolved
@@ -61,8 +61,7 @@ async def on_message(message: discord.Message):
     if message.channel.name not in config.allowed_channels:
         return
 
-    # メンションテキスト除去
-    # メンション部分を削除してユーザー発言のみ抽出
+    # メンションテキストを除去
     content = message.content
     for user_mention in message.mentions:
         content = content.replace(user_mention.mention, "")
@@ -71,14 +70,17 @@ async def on_message(message: discord.Message):
     # ユーザー名取得(サーバー内のニックネームを優先)
     username = message.author.display_name
 
-    # 添付ファイル処理(base64)
-    attachments_data = []
+    # 添付ファイル処理(PILで読み込み)
+    images = []
     for attachment in message.attachments:
         # ファイルをバイト列で取得
         file_bytes = await attachment.read()
-        # base64エンコード
-        encoded = base64.b64encode(file_bytes)
-        attachments_data.append(encoded)
+        # PILで画像を開く
+        try:
+            img = Image.open(BytesIO(file_bytes))
+            images.append(img)
+        except Exception:
+            pass  # 画像以外のファイルの場合等、必要に応じてエラーハンドリング
 
     # Reactionをつけて受付を示す
     try:
@@ -90,13 +92,11 @@ async def on_message(message: discord.Message):
     async with message.channel.typing():
         # AIへ問い合わせ
         status_code, ai_response = chat_ai.generate_response(
-            user_content=content, attachments=attachments_data
+            user_content=content, user_name=username, images=images
         )
 
     # レスポンス処理
     if status_code == 200:
-        # メンションまたはリプライ元ユーザーに返信
-        # リプライで返信 (スレッドやDMなどの要件によって変更)
         await message.reply(ai_response, mention_author=True)
     else:
         await message.reply(ai_response, mention_author=True)

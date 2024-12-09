@@ -1,6 +1,9 @@
+# chat_ai.py
 import os
-import base64
 import google.generativeai as genai
+from typing import List
+from PIL import Image
+from io import BytesIO
 
 
 class ChatAI:
@@ -8,28 +11,37 @@ class ChatAI:
         self, api_key: str, model: str, system_prompt: str, error_message: str
     ):
         genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel(model)
         self.system_prompt = system_prompt
         self.error_message = error_message
-        self.model = genai.GenerativeModel(model)
 
     def generate_response(
-        self, user_content: str, attachments: list[bytes]
+        self, user_content: str, user_name: str, images: List[Image.Image]
     ) -> (int, str):
         """
         user_content: メンションやリプライを除去したユーザーからのテキスト
-        attachments: base64デコード済みのバイナリデータを格納したリスト
+        images: PIL.Imageインスタンスを格納したリスト
         戻り値: (status_code, response_text)
-        status_codeは暫定的に200固定も可(エラーハンドリングを拡張したければここで対応)
         """
 
-        # 画像等の添付ファイルを元にプロンプトを拡張する例(適宜実装)
-        # 一例として、画像があれば説明を求めるメッセージをsystem promptに付け足す
-        prompt = self.system_prompt + "\nユーザーからのリクエスト: " + user_content
-        if attachments:
-            prompt += f"\n(以下はユーザーが添付したファイルデータに関する質問です: {len(attachments)}ファイル)"
+        prompt = (
+            self.system_prompt
+            + "\n"
+            + user_name
+            + " さんからのリクエスト: "
+            + user_content
+        )
 
+        # 引数として渡すリストを構築
+        # 最初の要素がprompt、続いて画像を並べる
+        # 画像がない場合は単純にpromptを文字列として渡す
         try:
-            response = self.model.generate_content(prompt)
+            if images:
+                request_args = [prompt] + images
+            else:
+                request_args = prompt
+
+            response = self.model.generate_content(request_args)
             return (200, response.text)
         except Exception:
             # エラーが起きた場合
