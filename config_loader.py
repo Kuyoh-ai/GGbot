@@ -25,3 +25,7 @@ class ConfigLoader:
     @property
     def gemini_model(self):
         return self._config.get("gemini_model", "gemini-1.5-flash")
+
+    @property
+    def grok_model(self):
+        return self._config.get("grok_model", "grok-3")

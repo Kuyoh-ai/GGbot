@@ -15,13 +15,14 @@ load_dotenv()
 CONFIG_PATH = "config.yaml"
 config = ConfigLoader(CONFIG_PATH)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+# GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GROK_API_KEY = os.getenv("GROK_API_KEY", "")
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "")
 
 # ------------- ChatAIインスタンス生成 -------------
 chat_ai = ChatAI(
-    api_key=GEMINI_API_KEY,
-    model=config.gemini_model,
+    api_key=GROK_API_KEY,
+    model=config.grok_model,
     system_prompt=config.system_prompt,
     error_message=config.error_message,
 )
